@@ -6,27 +6,38 @@
  * не требуется.
  *
  * Как развернуть в Cloudflare Workers:
- * 1. dash.cloudflare.com → Workers & Pages → Create Worker.
- * 2. Вставьте этот файл целиком и нажмите Deploy.
- * 3. Получите адрес вида https://sotg-stream.<аккаунт>.workers.dev.
- * 4. Пропишите его в assets/js/config.js:
- *      streamUrl: "https://sotg-stream.<аккаунт>.workers.dev/stream"
- *      metadataUrl: "https://sotg-stream.<аккаунт>.workers.dev/stats?sid=1&json=1"
- *      fallbackPlayerUrl: "https://sotg-stream.<аккаунт>.workers.dev/stream"
+ * 1. Workers & Pages → Create application → Start with Hello World! → Deploy.
+ * 2. Edit code → заменить содержимое worker.js этим файлом → Deploy.
+ * 3. Получить адрес вида https://sotg-stream.<аккаунт>.workers.dev.
+ * 4. Прописать его в assets/js/config.js.
  *
  * Если поток переедет на другой сервер, поменяйте ORIGIN ниже.
  */
 
-const ORIGIN = "http://178.32.146.184:6660";
+// Cloudflare Workers не делают fetch по IP-адресу — только по домену.
+// Поэтому используем PTR-имя сервера, оно резолвится в тот же 178.32.146.184.
+const ORIGIN = "http://ip184.ip-178-32-146.eu:6660";
 
 // Заголовки, которые полезно сохранить при проксировании.
+//
+// icy-metaint обязателен: если Shoutcast вставляет блоки метаданных в поток,
+// браузер должен узнать их размер, иначе он примет служебные байты за звук
+// и воспроизведение начнёт «икать» и останавливаться.
 const PASS_HEADERS = [
   "content-type",
   "icy-name",
   "icy-genre",
   "icy-br",
-  "icy-sr"
+  "icy-sr",
+  "icy-metaint"
 ];
+
+// Значения по умолчанию, если сервер их не прислал.
+const FALLBACK_HEADERS = {
+  "icy-name": "soundsoftheground",
+  "icy-genre": "Hardcore",
+  "icy-br": "96"
+};
 
 export default {
   async fetch(request) {
@@ -57,15 +68,25 @@ export default {
       });
     }
 
-    const upstream = await fetch(ORIGIN + url.pathname + url.search, {
-      method: request.method,
-      headers: {
-        "User-Agent": "S0uNd5-0f-7he-Gr0unD/1.0",
-        "Icy-MetaData": "1",
-        "Accept": "*/*"
-      },
-      redirect: "follow"
-    });
+    let upstream;
+    try {
+      upstream = await fetch(ORIGIN + url.pathname + url.search, {
+        method: request.method,
+        headers: {
+          "User-Agent": "S0uNd5-0f-7he-Gr0unD/1.0",
+          // Метаданные сайт берёт из /stats (JSONP), поэтому просим у сервера
+          // чистый звук без служебных вставок внутри потока.
+          "Icy-MetaData": "0",
+          "Accept": "*/*"
+        },
+        redirect: "follow"
+      });
+    } catch (err) {
+      return new Response("Stream origin is unreachable", {
+        status: 502,
+        headers: { "Access-Control-Allow-Origin": "*" }
+      });
+    }
 
     const headers = new Headers();
     PASS_HEADERS.forEach(function (name) {
@@ -73,9 +94,19 @@ export default {
       if (value) headers.set(name, value);
     });
 
+    Object.keys(FALLBACK_HEADERS).forEach(function (name) {
+      if (!headers.has(name)) headers.set(name, FALLBACK_HEADERS[name]);
+    });
+
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Cache-Control", "no-store");
     if (!headers.has("Content-Type")) headers.set("Content-Type", "audio/mpeg");
+
+    // JSONP: Shoutcast отдаёт callback-ответ как application/json.
+    // Для <script> надёжнее явный JavaScript-тип.
+    if (url.pathname === "/stats" && url.searchParams.has("callback")) {
+      headers.set("Content-Type", "application/javascript; charset=utf-8");
+    }
 
     return new Response(request.method === "HEAD" ? null : upstream.body, {
       status: upstream.status,

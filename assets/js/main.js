@@ -58,6 +58,7 @@
   var trackNodes = $$("[data-track]");
   var hintNode = $("[data-hint]");
   var errorNode = $("[data-error]");
+  var errorTextNode = $("[data-error-text]");
   var statusNodes = $$("[data-status]");
   var volumeInput = $("[data-volume]");
   var volumeValue = $("[data-volume-value]");
@@ -109,11 +110,17 @@
     }
   }
 
-  function showError() {
+  function showError(kind) {
     clearTimeout(watchdog);
     if (!audio.paused) audio.pause();
     setPlaying(false);
     if (errorNode) errorNode.hidden = false;
+    if (errorTextNode) {
+      errorTextNode.textContent =
+        kind === "mixed"
+          ? "Браузер блокирует поток на HTTPS-странице. Откройте"
+          : "Поток не отвечает. Попробуйте ещё раз или откройте";
+    }
     setStatus("error");
   }
 
@@ -148,7 +155,7 @@
 
     var src = streamSrc();
     if (!src) {
-      showError();
+      showError(isMixedContent(CONFIG.streamUrl) ? "mixed" : "error");
       return;
     }
 
@@ -417,9 +424,9 @@
     } catch (err) {
       /* не поддерживается */
     }
-
-    setTrack(CONFIG.defaultTrack || "S0uNd5 0f 7he Gr0unD — эфир 24/7");
   }
+
+  setTrack(CONFIG.defaultTrack || "S0uNd5 0f 7he Gr0unD — эфир 24/7");
 
   /* ---------------------------------------------
      Header + mini player

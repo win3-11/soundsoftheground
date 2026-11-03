@@ -4,16 +4,18 @@
    ========================================================= */
 
 window.SOTG_CONFIG = {
-  // Прямая ссылка на поток Shoutcast.
-  streamUrl: "http://178.32.146.184:6660/stream",
+  // HTTPS-прокси (Cloudflare Worker) — нужен, потому что GitHub Pages
+  // открывается по HTTPS, а сам поток отдаётся только по HTTP.
+  // Код прокси: deploy/cloudflare-worker.js
+  streamUrl: "https://sotg-stream.vadym1608.workers.dev/stream",
 
   // Публичная статистика Shoutcast: название трека, битрейт, слушатели.
   // Сайт забирает её через JSONP (callback=...), поэтому CORS не нужен.
-  metadataUrl: "http://178.32.146.184:6660/stats?sid=1&json=1",
+  metadataUrl: "https://sotg-stream.vadym1608.workers.dev/stats?sid=1&json=1",
   metadataType: "shoutcast",
 
   // Запасная ссылка, если прямой поток не открывается.
-  fallbackPlayerUrl: "http://178.32.146.184:6660/stream",
+  fallbackPlayerUrl: "https://sotg-stream.vadym1608.workers.dev/stream",
 
   stationName: "S0uNd5 0f 7he Gr0unD",
   defaultTrack: "S0uNd5 0f 7he Gr0unD — эфир 24/7",

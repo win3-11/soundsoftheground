@@ -815,6 +815,54 @@ body.is-playing .btn__icon .icon-pause {
   background: linear-gradient(90deg, var(--acid), rgba(216, 255, 62, 0.08) 62%, transparent);
 }
 
+/* Фоновое видео за плеером.
+   Прозрачность и затемнение — три переменные ниже. */
+.panel {
+  --video-opacity: 0.55;   /* 0–1: насколько видно видео при игре */
+  --video-dim: 0.55;       /* 0–1: затемнение поверх видео */
+  --video-fade: 1.2s;      /* скорость появления/затухания */
+}
+
+.panel__video {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--video-fade) ease;
+}
+
+body.is-playing .panel__video {
+  opacity: var(--video-opacity);
+}
+
+.panel__video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.7) saturate(0.85) contrast(1.05);
+}
+
+/* Затемнение: ровный слой + градиент слева (текст) и снизу (кнопки) */
+.panel__video::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(10, 10, 12, 0.85) 0%, rgba(10, 10, 12, 0.2) 70%),
+    linear-gradient(0deg, rgba(10, 10, 12, 0.8) 0%, transparent 45%),
+    rgba(10, 10, 12, var(--video-dim));
+}
+
+/* Контент панели — поверх видео */
+.panel > :not(.panel__video) {
+  position: relative;
+  z-index: 1;
+}
+
 .panel__head {
   display: flex;
   align-items: center;
@@ -2171,6 +2219,10 @@ body.is-muted .volume__wave {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .panel__video {
+    display: none;
   }
 
   *,

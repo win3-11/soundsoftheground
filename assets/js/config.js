@@ -14,6 +14,10 @@ window.SOTG_CONFIG = {
   metadataUrl: "https://sotg-stream.vadym1608.workers.dev/stats?sid=1&json=1",
   metadataType: "shoutcast",
 
+  // История эфира (последние ~10 треков). Тот же воркер, обычный fetch:
+  // воркер уже отдаёт Access-Control-Allow-Origin: *.
+  playedUrl: "https://sotg-stream.vadym1608.workers.dev/played?sid=1&type=json",
+
   // Запасная ссылка, если прямой поток не открывается.
   fallbackPlayerUrl: "https://sotg-stream.vadym1608.workers.dev/stream",
 

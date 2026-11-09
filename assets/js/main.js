@@ -94,8 +94,36 @@
     });
   }
 
+  /* ---------------------------------------------
+     Фоновое видео за плеером
+     CSS плавно меняет прозрачность по body.is-playing,
+     здесь только запускаем/останавливаем сам ролик.
+     --------------------------------------------- */
+
+  var panelVideoBox = $("[data-panel-video]");
+  var panelVideo = panelVideoBox ? $("video", panelVideoBox) : null;
+  var videoPauseTimer = null;
+  var reduceMotion =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function syncVideo(isPlaying) {
+    if (!panelVideo || reduceMotion) return;
+    clearTimeout(videoPauseTimer);
+
+    if (isPlaying) {
+      var p = panelVideo.play();
+      if (p && typeof p.catch === "function") p.catch(function () {});
+    } else {
+      // Ждём, пока видео погаснет, и только потом ставим на паузу
+      videoPauseTimer = setTimeout(function () {
+        panelVideo.pause();
+      }, 1300);
+    }
+  }
+
   function setPlaying(isPlaying) {
     body.classList.toggle("is-playing", isPlaying);
+    syncVideo(isPlaying);
     playButtons.forEach(function (btn) {
       btn.setAttribute("aria-pressed", isPlaying ? "true" : "false");
       btn.setAttribute("aria-label", isPlaying ? "Пауза" : "Слушать эфир");

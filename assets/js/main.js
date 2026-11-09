@@ -392,6 +392,7 @@
 
   var recentWrap = $("[data-recent-wrap]");
   var recentList = $("[data-recent]");
+  var RECENT_LIMIT = 5; // сколько предыдущих треков показывать
   var mixesRoot = $("[data-mixes]");
   var mixNodes = [];
 
@@ -425,16 +426,18 @@
         if (!Array.isArray(items) || !items.length) return;
         recentList.textContent = "";
 
-        items.slice(0, 10).forEach(function (item, index) {
+        // items[0] — трек, который играет сейчас, он уже показан в плеере,
+        // поэтому в истории берём только предыдущие.
+        items.slice(1, 1 + RECENT_LIMIT).forEach(function (item) {
           var title = cleanTrackTitle(item && item.title);
           if (!title) return;
 
           var li = doc.createElement("li");
-          li.className = "recent__item" + (index === 0 ? " is-now" : "");
+          li.className = "recent__item";
 
           var time = doc.createElement("span");
           time.className = "recent__time";
-          time.textContent = index === 0 ? "сейчас" : formatTime(item.playedat);
+          time.textContent = formatTime(item.playedat);
 
           var name = doc.createElement("span");
           name.className = "recent__name";
@@ -445,7 +448,7 @@
           recentList.appendChild(li);
         });
 
-        if (recentWrap && recentList.children.length) recentWrap.hidden = false;
+        if (recentWrap) recentWrap.hidden = !recentList.children.length;
       })
       .catch(function () {
         /* история — приятный бонус, ошибки не показываем */
@@ -664,6 +667,8 @@
   var tracks = $$("[data-tracks] .track");
   var countNode = $("[data-count]");
   var emptyNode = $("[data-empty]");
+  var totalNode = $("[data-total]");
+  if (totalNode) totalNode.textContent = String(tracks.length);
 
   function filterTracks() {
     if (!filterInput) return;

@@ -230,6 +230,7 @@
     var clean = cleanTrackTitle(title);
     if (!clean || clean === lastTrack) return;
     lastTrack = clean;
+    markActiveMix();
 
     trackNodes.forEach(function (node) {
       node.textContent = clean;
@@ -289,7 +290,9 @@
     window[callback] = function (data) {
       finish();
       if (data && data.songtitle) {
+        var before = lastTrack;
         setTrack(data.songtitle);
+        if (lastTrack !== before) loadRecent();
         if (Number(data.streamstatus) === 1) setStatus("live");
       }
       scheduleMetadata(15000);
@@ -354,6 +357,139 @@
       }, 20000);
     });
   }
+
+  /* ---------------------------------------------
+     Recent tracks (/played) + mix tracklists
+     --------------------------------------------- */
+
+  var recentWrap = $("[data-recent-wrap]");
+  var recentList = $("[data-recent]");
+  var mixesRoot = $("[data-mixes]");
+  var mixNodes = [];
+
+  function formatTime(unix) {
+    try {
+      return new Date(unix * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function loadRecent() {
+    if (!CONFIG.playedUrl || !recentList || !window.fetch) return;
+    if (isMixedContent(CONFIG.playedUrl)) return;
+
+    var url =
+      CONFIG.playedUrl +
+      (CONFIG.playedUrl.indexOf("?") === -1 ? "?" : "&") +
+      "_=" +
+      Date.now();
+
+    window
+      .fetch(url, { cache: "no-store" })
+      .then(function (res) {
+        return res.ok ? res.json() : [];
+      })
+      .then(function (items) {
+        if (!Array.isArray(items) || !items.length) return;
+        recentList.textContent = "";
+
+        items.slice(0, 10).forEach(function (item, index) {
+          var title = cleanTrackTitle(item && item.title);
+          if (!title) return;
+
+          var li = doc.createElement("li");
+          li.className = "recent__item" + (index === 0 ? " is-now" : "");
+
+          var time = doc.createElement("span");
+          time.className = "recent__time";
+          time.textContent = index === 0 ? "сейчас" : formatTime(item.playedat);
+
+          var name = doc.createElement("span");
+          name.className = "recent__name";
+          name.textContent = title;
+
+          li.appendChild(time);
+          li.appendChild(name);
+          recentList.appendChild(li);
+        });
+
+        if (recentWrap && recentList.children.length) recentWrap.hidden = false;
+      })
+      .catch(function () {
+        /* история — приятный бонус, ошибки не показываем */
+      });
+  }
+
+  function buildMixes() {
+    var mixes = window.SOTG_MIXES;
+    if (!mixesRoot || !Array.isArray(mixes)) return;
+
+    mixes.forEach(function (mix) {
+      if (!mix || !mix.tracks || !mix.tracks.length) return;
+
+      var details = doc.createElement("details");
+      details.className = "mix";
+
+      var summary = doc.createElement("summary");
+      summary.className = "mix__summary";
+
+      var label = doc.createElement("span");
+      label.className = "mix__label";
+      label.textContent = "Внутри микса · " + mix.title;
+
+      var badge = doc.createElement("span");
+      badge.className = "mix__badge";
+      badge.textContent = "в эфире сейчас";
+
+      var count = doc.createElement("span");
+      count.className = "mix__count";
+      count.textContent = mix.tracks.length + " треков";
+
+      summary.appendChild(label);
+      summary.appendChild(badge);
+      summary.appendChild(count);
+      details.appendChild(summary);
+
+      var ol = doc.createElement("ol");
+      ol.className = "tracks mix__tracks";
+      mix.tracks.forEach(function (name) {
+        var li = doc.createElement("li");
+        li.className = "track";
+        var span = doc.createElement("span");
+        span.className = "track__name";
+        span.textContent = name;
+        li.appendChild(span);
+        ol.appendChild(li);
+      });
+      details.appendChild(ol);
+
+      mixesRoot.appendChild(details);
+      mixNodes.push({ mix: mix, node: details });
+    });
+  }
+
+  function markActiveMix() {
+    var current = (lastTrack || "").toLowerCase();
+    mixNodes.forEach(function (entry) {
+      var active =
+        !!entry.mix.match && current.indexOf(entry.mix.match.toLowerCase()) !== -1;
+      entry.node.classList.toggle("is-live", active);
+      if (active && !entry.node.hasAttribute("data-touched")) {
+        entry.node.open = true;
+      }
+    });
+  }
+
+  buildMixes();
+  mixNodes.forEach(function (entry) {
+    entry.node.addEventListener("toggle", function () {
+      entry.node.setAttribute("data-touched", "1");
+    });
+  });
 
   /* ---------------------------------------------
      Volume
@@ -497,7 +633,7 @@
      --------------------------------------------- */
 
   var filterInput = $("[data-filter]");
-  var tracks = $$(".track");
+  var tracks = $$("[data-tracks] .track");
   var countNode = $("[data-count]");
   var emptyNode = $("[data-empty]");
 
